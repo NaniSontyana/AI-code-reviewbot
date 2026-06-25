@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL with pgvector extension
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: documind-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_password
+      POSTGRES_DB: documind
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Automatically initialize schema on first startup
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d documind"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Python ML Microservice
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: documind-ml-service
+    restart: always
+    environment:
+      PORT: 5001
+      DATABASE_URL: postgresql://postgres:postgres_secure_password@db:5432/documind
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      EMBEDDING_MODEL_NAME: all-MiniLM-L6-v2
+    ports:
+      - "5001:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/ml/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 3. Node.js Express API Gateway
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: documind-backend
+    restart: always
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres_secure_password@db:5432/documind
+      JWT_SECRET: ${JWT_SECRET:-super_secure_jwt_secret_key_change_me_in_prod}
+      ML_SERVICE_URL: http://ml-service:5001
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+
+networks:
+  documind-network:
+    driver: bridge
