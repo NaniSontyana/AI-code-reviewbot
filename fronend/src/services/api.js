@@ -37,14 +37,90 @@ API.interceptors.response.use(
 );
 
 /* ==========================================
-   AI Code Review Bot Endpoint
+   AI Code Review Bot Endpoints
    ========================================== */
-export const reviewCode = async (code, language) => {
+export const reviewCode = async (code, language, documentId = null, filename = "untitled", filepath = "untitled") => {
   const response = await API.post("/review", {
     code,
-    language
+    language,
+    documentId,
+    filename,
+    filepath
   });
   return response.data;
+};
+
+export const streamReviewCode = async (code, language, documentId = null, onToken, onComplete, onError, onLinter = null, filename = "untitled", filepath = "untitled") => {
+  const token = localStorage.getItem("token");
+  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  
+  try {
+    const response = await fetch(`${baseUrl}/review/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ code, language, documentId, filename, filepath })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMsg = `Server error ${response.status}`;
+      try {
+        const json = JSON.parse(errorText);
+        errorMsg = json.message || errorMsg;
+      } catch (e) {}
+      throw new Error(errorMsg);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+
+      for (const eventStr of events) {
+        if (!eventStr.trim()) continue;
+        const lines = eventStr.split("\n");
+        let eventType = "message";
+        let dataStr = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventType = line.replace(/^event:\s*/, "").trim();
+          } else if (line.startsWith("data:")) {
+            dataStr = line.replace(/^data:\s*/, "").trim();
+          }
+        }
+
+        if (!dataStr) continue;
+
+        try {
+          const payload = JSON.parse(dataStr);
+          if (eventType === "linter") {
+            if (onLinter) onLinter(payload.diagnostics);
+          } else if (eventType === "token") {
+            if (onToken) onToken(payload.token);
+          } else if (eventType === "complete") {
+            if (onComplete) onComplete(payload);
+          } else if (eventType === "error") {
+            if (onError) onError(payload.error || "Streaming failed");
+          }
+        } catch (e) {
+          console.error("Error parsing SSE chunk:", e);
+        }
+      }
+    }
+  } catch (err) {
+    if (onError) onError(err.message || "Failed to stream code review");
+  }
 };
 
 /* ==========================================
@@ -117,5 +193,18 @@ export const queryDocument = async (documentId, question) => {
 
 export const getChatHistory = async (documentId) => {
   const response = await API.get(`/chat/${documentId}/history`);
+  return response.data;
+};
+
+/* ==========================================
+   Persistent Review History Endpoints
+   ========================================== */
+export const getReviewHistory = async (limit = 30) => {
+  const response = await API.get(`/review/history?limit=${limit}`);
+  return response.data;
+};
+
+export const getReviewById = async (id) => {
+  const response = await API.get(`/review/history/${id}`);
   return response.data;
 };

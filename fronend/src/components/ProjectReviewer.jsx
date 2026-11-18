@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
-import { reviewCode } from '../services/api';
-import { FolderPlus, FileCode, Folder, ChevronDown, ChevronRight, Play, CheckCircle2, Sparkles, Loader2, Info } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { reviewCode, streamReviewCode, listDocuments } from '../services/api';
+import { FolderPlus, FileCode, Folder, ChevronDown, ChevronRight, Play, CheckCircle2, Sparkles, Loader2, Info, BookOpen, FileCheck } from 'lucide-react';
 import ReviewResult from './ReviewResult';
 
 function ProjectReviewer({
@@ -19,8 +19,27 @@ function ProjectReviewer({
   const [reviewError, setReviewError] = useState('');
   const [fixedIssueIds, setFixedIssueIds] = useState(new Set()); // Fixed issues per active file
   const [flashGlow, setFlashGlow] = useState(false);
+  const [availableDocs, setAvailableDocs] = useState([]);
+  const [selectedDocId, setSelectedDocId] = useState('');
 
   const fileInputRef = useRef(null);
+
+  // Load available documents for RAG Architectural Compliance
+  useEffect(() => {
+    const fetchDocs = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const data = await listDocuments();
+        if (data && data.success && Array.isArray(data.documents)) {
+          setAvailableDocs(data.documents);
+        }
+      } catch (e) {
+        console.warn("Could not fetch documents for compliance dropdown:", e);
+      }
+    };
+    fetchDocs();
+  }, []);
 
   // Handle uploading multiple files / folders via input
   const handleUpload = (e) => {
@@ -71,7 +90,7 @@ function ProjectReviewer({
 
   const activeFile = projectFiles.find(f => f.id === selectedFileId);
 
-  // Run AI Code Review on active file
+  // Run AI Code Review on active file with streaming
   const handleReviewActiveFile = async () => {
     if (!activeFile) return;
     setLoadingFileReview(true);
@@ -79,30 +98,53 @@ function ProjectReviewer({
     setFixedIssueIds(new Set());
 
     try {
-      const data = await reviewCode(activeCode, activeLanguage);
-      if (data.success === false) {
-        setReviewError(data.error || 'Failed to review file.');
-      } else {
-        onUpdateFileReview(activeFile.id, data);
-      }
+      await streamReviewCode(
+        activeCode,
+        activeLanguage,
+        selectedDocId || null,
+        null, // tokens handled live
+        (payload) => {
+          if (payload.success === false) {
+            setReviewError(payload.error || 'Failed to review file.');
+          } else {
+            onUpdateFileReview(activeFile.id, payload.data || payload);
+          }
+          setLoadingFileReview(false);
+        },
+        async (err) => {
+          console.warn('Streaming error in project reviewer, falling back to standard review:', err);
+          try {
+            const fallbackData = await reviewCode(activeCode, activeLanguage, selectedDocId || null);
+            if (fallbackData.success === false) {
+              setReviewError(fallbackData.error || 'Failed to review file.');
+            } else {
+              onUpdateFileReview(activeFile.id, fallbackData.data || fallbackData);
+            }
+          } catch (fallbackErr) {
+            setReviewError(fallbackErr.response?.data?.message || err || 'Connection failed.');
+          } finally {
+            setLoadingFileReview(false);
+          }
+        }
+      );
     } catch (err) {
       console.error(err);
-      setReviewError(err.response?.data?.message || 'Connection failed. Please ensure the backend gateway is running.');
-    } finally {
+      setReviewError(err.message || 'Connection failed. Please ensure the backend gateway is running.');
       setLoadingFileReview(false);
     }
   };
 
   // One-Click Auto-Fix within project reviewer
   const handleApplyFix = (issue, issueIndex) => {
-    const { line, suggestion } = issue;
-    if (!line || !activeFile) return;
+    const { line, replacement_code, suggestion } = issue;
+    const fixCode = replacement_code || suggestion;
+    if (!line || !activeFile || !fixCode) return;
 
     const lines = activeCode.split('\n');
     if (line < 1 || line > lines.length) return;
 
     const newLines = [...lines];
-    newLines[line - 1] = suggestion;
+    newLines[line - 1] = fixCode;
     const newCode = newLines.join('\n');
 
     onCodeChange(newCode, activeFile.id);
@@ -274,18 +316,38 @@ function ProjectReviewer({
                     <span>{activeFile.path}</span>
                   </div>
                   
-                  <button 
-                    className="btn-primary btn-run-file-review"
-                    onClick={handleReviewActiveFile}
-                    disabled={loadingFileReview}
-                  >
-                    {loadingFileReview ? (
-                      <Loader2 className="spinner" size={14} />
-                    ) : (
-                      <Play size={14} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {availableDocs.length > 0 && (
+                      <div className="guideline-selector-wrapper" title="Select an uploaded document to perform an architectural compliance audit">
+                        <BookOpen size={14} className="text-secondary" />
+                        <select
+                          className="guideline-select"
+                          value={selectedDocId}
+                          onChange={(e) => setSelectedDocId(e.target.value)}
+                        >
+                          <option value="">No Guideline (Standard)</option>
+                          {availableDocs.map(doc => (
+                            <option key={doc.id} value={doc.id}>
+                              📘 {doc.filename}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     )}
-                    <span>{loadingFileReview ? 'Reviewing...' : 'Review File'}</span>
-                  </button>
+                    
+                    <button 
+                      className="btn-primary btn-run-file-review"
+                      onClick={handleReviewActiveFile}
+                      disabled={loadingFileReview}
+                    >
+                      {loadingFileReview ? (
+                        <Loader2 className="spinner" size={14} />
+                      ) : (
+                        <Play size={14} />
+                      )}
+                      <span>{loadingFileReview ? 'Reviewing...' : selectedDocId ? 'Audit Compliance' : 'Review File'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {reviewError && (
@@ -307,7 +369,15 @@ function ProjectReviewer({
                       <FileCode size={14} className="text-secondary" />
                       <span>{activeFile.name}</span>
                     </div>
-                    <span className="badge badge-secondary">{activeLanguage}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {selectedDocId && (
+                        <span className="badge badge-success" title="RAG Architecture Compliance Mode Active" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <FileCheck size={12} />
+                          <span>RAG Active: {availableDocs.find(d => d.id === selectedDocId)?.filename?.substring(0, 16)}</span>
+                        </span>
+                      )}
+                      <span className="badge badge-secondary">{activeLanguage}</span>
+                    </div>
                   </div>
                   <div className="editor-body-full">
                     <textarea 

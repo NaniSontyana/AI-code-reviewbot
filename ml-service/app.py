@@ -411,9 +411,10 @@ USER QUESTION:
 Formulate your response now based strictly on the document context:"""
 
         # 5. Invoke Groq API
-        print(f"Invoking Groq API for query on doc {document_id}")
+        groq_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+        print(f"Invoking Groq API ({groq_model}) for query on doc {document_id}")
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=groq_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -445,6 +446,78 @@ Formulate your response now based strictly on the document context:"""
         return jsonify({
             "success": False,
             "message": f"Query failed: {str(e)}"
+        }), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route("/ml/retrieve-context", methods=["POST"])
+def retrieve_context():
+    """
+    Endpoint to retrieve relevant chunks from a document without invoking LLM completion.
+    Used by the Code Reviewer to ground code reviews against architectural guidelines.
+    """
+    global use_mock_db
+    
+    if not embedding_model:
+        return jsonify({"success": False, "message": "Embedding model not loaded"}), 500
+        
+    data = request.json or {}
+    query = data.get("query")
+    document_id = data.get("document_id")
+    top_k = int(data.get("top_k", 4))
+    
+    if not query or not document_id:
+        return jsonify({"success": False, "message": "query and document_id are required"}), 400
+        
+    conn = None
+    try:
+        query_embedding = embedding_model.encode(query).tolist()
+        
+        if use_mock_db:
+            retrieved_chunks = mock_query_chunks(document_id, query_embedding, top_k)
+        else:
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute(
+                    """
+                    SELECT chunk_text, page_number, chunk_index,
+                           (1 - (embedding <=> %s::vector)) AS similarity
+                    FROM document_chunks
+                    WHERE document_id = %s
+                    ORDER BY embedding <=> %s::vector ASC
+                    LIMIT %s
+                    """,
+                    (query_embedding, document_id, query_embedding, top_k)
+                )
+                retrieved_chunks = cur.fetchall()
+                cur.close()
+            except Exception as db_err:
+                print(f"PostgreSQL query failed in retrieve-context: {db_err}. Switching to Mock DB fallback...")
+                use_mock_db = True
+                retrieved_chunks = mock_query_chunks(document_id, query_embedding, top_k)
+                
+        chunks = []
+        for row in retrieved_chunks:
+            chunks.append({
+                "page_number": row["page_number"],
+                "chunk_text": row["chunk_text"],
+                "similarity": round(float(row.get("similarity", 0.0)), 4)
+            })
+            
+        return jsonify({
+            "success": True,
+            "document_id": document_id,
+            "chunks": chunks
+        }), 200
+        
+    except Exception as e:
+        print(f"ERROR: Context retrieval failed for document {document_id}: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "message": f"Context retrieval failed: {str(e)}"
         }), 500
     finally:
         if conn:

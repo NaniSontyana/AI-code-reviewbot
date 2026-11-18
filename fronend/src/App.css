@@ -1,1 +1,830 @@
-/* Custom styles for components are self-contained in their respective files or in index.css */
+/* ==========================================================================
+   DevMind Studio — VS Code Dark+ Professional IDE Design System
+   ========================================================================== */
+
+:root {
+  --ide-bg-titlebar: #1e1e1e;
+  --ide-bg-activitybar: #181818;
+  --ide-bg-sidebar: #252526;
+  --ide-bg-sidebar-header: #1f1f20;
+  --ide-bg-editor: #1e1e1e;
+  --ide-bg-gutter: #1e1e1e;
+  --ide-bg-tab-active: #1e1e1e;
+  --ide-bg-tab-inactive: #2d2d2d;
+  --ide-bg-tab-hover: #222222;
+  --ide-bg-panel: #1e1e1e;
+  --ide-bg-statusbar: #007acc;
+  --ide-bg-hover: #2a2d2e;
+  --ide-bg-selected: #094771;
+  --ide-bg-input: #3c3c3c;
+  --ide-bg-card: #252526;
+  --ide-bg-card-hover: #2a2d2e;
+
+  --ide-border: #2d2d2d;
+  --ide-border-light: #3e3e42;
+  --ide-border-accent: #007acc;
+
+  --ide-text-primary: #cccccc;
+  --ide-text-secondary: #858585;
+  --ide-text-bright: #ffffff;
+  --ide-text-link: #3794ff;
+
+  --ide-accent: #007acc;
+  --ide-accent-hover: #0098ff;
+  --ide-purple: #8b5cf6;
+  --ide-cyan: #06b6d4;
+  --ide-green: #4ec9b0;
+  --ide-yellow: #cca700;
+  --ide-red: #f14c4c;
+
+  --font-ide: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-editor: "Fira Code", Consolas, "Courier New", monospace;
+
+  --ide-transition: all 0.18s ease;
+}
+
+/* ==========================================================================
+   Global Reset & Base Container
+   ========================================================================== */
+.vscode-ide-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--ide-bg-editor);
+  color: var(--ide-text-primary);
+  font-family: var(--font-ide);
+  font-size: 13px;
+  overflow: hidden;
+  user-select: none;
+}
+
+.vscode-ide-container.resizing-active {
+  user-select: none !important;
+  cursor: col-resize;
+}
+
+/* --------------------------------------------------------------------------
+   1. Window Title Bar & Menu
+   -------------------------------------------------------------------------- */
+.vscode-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 35px;
+  background-color: var(--ide-bg-titlebar);
+  border-bottom: 1px solid var(--ide-border);
+  padding: 0 12px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.vscode-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ide-logo-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ide-text-bright);
+  font-size: 12px;
+}
+
+.ide-menus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ide-menu-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ide-text-secondary);
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ide-menu-item:hover {
+  background-color: var(--ide-bg-hover);
+  color: var(--ide-text-bright);
+}
+
+.vscode-titlebar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 520px;
+}
+
+.ide-quick-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ide-border-light);
+  border-radius: 6px;
+  color: var(--ide-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: var(--ide-transition);
+}
+
+.ide-quick-open:hover {
+  border-color: var(--ide-accent);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--ide-text-bright);
+}
+
+.vscode-titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ide-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--ide-text-secondary);
+  cursor: pointer;
+  transition: var(--ide-transition);
+}
+
+.ide-toolbar-btn:hover {
+  background-color: var(--ide-bg-hover);
+  color: var(--ide-text-bright);
+}
+
+.ide-toolbar-btn.active {
+  color: var(--ide-accent);
+}
+
+/* --------------------------------------------------------------------------
+   2. Main IDE Workspace Body
+   -------------------------------------------------------------------------- */
+.vscode-main-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+/* Activity Bar (Far Left 48px) */
+.vscode-activitybar {
+  width: 48px;
+  background-color: var(--ide-bg-activitybar);
+  border-right: 1px solid var(--ide-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+.activitybar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.activitybar-item {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ide-text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.activitybar-item:hover {
+  color: var(--ide-text-bright);
+}
+
+.activitybar-item.active {
+  color: var(--ide-text-bright);
+}
+
+.activitybar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background-color: var(--ide-accent);
+}
+
+.activity-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background-color: var(--ide-accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+/* Primary Sidebar */
+.vscode-sidebar {
+  background-color: var(--ide-bg-sidebar);
+  border-right: 1px solid var(--ide-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.sidebar-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 35px;
+  padding: 0 16px;
+  background-color: var(--ide-bg-sidebar-header);
+  border-bottom: 1px solid var(--ide-border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ide-text-secondary);
+}
+
+.sidebar-scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accordion Sections */
+.sidebar-section {
+  border-bottom: 1px solid var(--ide-border);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ide-text-secondary);
+  background-color: transparent;
+  transition: background 0.15s;
+}
+
+.section-header:hover {
+  background-color: var(--ide-bg-hover);
+  color: var(--ide-text-bright);
+}
+
+.section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-body {
+  padding: 4px 0;
+}
+
+/* Tree Nodes */
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: var(--ide-text-primary);
+  font-size: 12px;
+  transition: background 0.1s;
+}
+
+.tree-item:hover {
+  background-color: var(--ide-bg-hover);
+}
+
+.tree-item.active {
+  background-color: var(--ide-bg-selected);
+  color: var(--ide-text-bright);
+}
+
+.tree-item .node-badge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   VS Code Interactive Splitter Handles (Left, Right, Bottom)
+   -------------------------------------------------------------------------- */
+.ide-splitter {
+  background-color: transparent;
+  position: relative;
+  z-index: 35;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.ide-splitter-col {
+  width: 5px;
+  cursor: col-resize;
+  margin: 0 -2px;
+}
+
+.ide-splitter-row {
+  height: 5px;
+  cursor: row-resize;
+  margin: -2px 0;
+  width: 100%;
+}
+
+.ide-splitter:hover,
+.ide-splitter.resizing {
+  background-color: var(--ide-accent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. Central Editor Stage
+   -------------------------------------------------------------------------- */
+.vscode-editor-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background-color: var(--ide-bg-editor);
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Tabs Bar */
+.vscode-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 35px;
+  background-color: var(--ide-bg-activitybar);
+  border-bottom: 1px solid var(--ide-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.tabs-list {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.vscode-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 14px;
+  background-color: var(--ide-bg-tab-inactive);
+  border-right: 1px solid var(--ide-border);
+  color: var(--ide-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.vscode-tab:hover {
+  background-color: var(--ide-bg-tab-hover);
+  color: var(--ide-text-primary);
+}
+
+.vscode-tab.active {
+  background-color: var(--ide-bg-tab-active);
+  color: var(--ide-text-bright);
+  border-top: 1px solid var(--ide-accent);
+}
+
+.tab-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--ide-text-secondary);
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 2px;
+}
+
+.tab-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  flex-shrink: 0;
+}
+
+/* Breadcrumbs */
+.vscode-breadcrumbs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  padding: 0 16px;
+  background-color: var(--ide-bg-editor);
+  border-bottom: 1px solid var(--ide-border);
+  color: var(--ide-text-secondary);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   4. Right AI Review Inspector (Secondary Sidebar)
+   -------------------------------------------------------------------------- */
+.vscode-inspector-panel {
+  background-color: var(--ide-bg-sidebar);
+  border-left: 1px solid var(--ide-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 35px;
+  padding: 0 14px;
+  background-color: var(--ide-bg-sidebar-header);
+  border-bottom: 1px solid var(--ide-border);
+  flex-shrink: 0;
+}
+
+.inspector-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.inspector-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--ide-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 6px 0;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.inspector-tab-btn:hover { color: var(--ide-text-bright); }
+.inspector-tab-btn.active { color: var(--ide-accent); }
+
+/* Monaco Antigravity Glyphs & In-Line Decorations */
+.audit-glyph-critical {
+  background: var(--ide-red);
+  width: 5px !important;
+  margin-left: 3px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--ide-red);
+}
+
+.audit-glyph-warning {
+  background: var(--ide-yellow);
+  width: 5px !important;
+  margin-left: 3px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--ide-yellow);
+}
+
+.audit-glyph-suggestion {
+  background: var(--ide-purple);
+  width: 5px !important;
+  margin-left: 3px;
+  border-radius: 50%;
+}
+
+.audit-line-highlight-critical {
+  background: rgba(241, 76, 76, 0.08) !important;
+}
+
+.audit-line-highlight-warning {
+  background: rgba(204, 167, 0, 0.06) !important;
+}
+
+.audit-line-highlight-suggestion {
+  background: rgba(139, 92, 246, 0.05) !important;
+}
+
+.inspector-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--ide-accent);
+}
+
+.inspector-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Bottom Panel (Problems / RAG Chat / Console Drawer)
+   -------------------------------------------------------------------------- */
+.vscode-bottom-panel {
+  background-color: var(--ide-bg-panel);
+  border-top: 1px solid var(--ide-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.bottom-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  background-color: var(--ide-bg-sidebar-header);
+  border-bottom: 1px solid var(--ide-border);
+  padding: 0 14px;
+  flex-shrink: 0;
+}
+
+.bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.bottom-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--ide-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 6px 12px;
+  position: relative;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bottom-tab-btn:hover {
+  color: var(--ide-text-bright);
+  background-color: var(--ide-bg-hover);
+}
+
+.bottom-tab-btn.active {
+  color: var(--ide-text-bright);
+}
+
+.bottom-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background-color: var(--ide-accent);
+}
+
+.bottom-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  min-height: 0;
+}
+
+/* Problems Table (VS Code / Eclipse diagnostic list) */
+.problems-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.problems-table th {
+  padding: 6px 10px;
+  color: var(--ide-text-secondary);
+  border-bottom: 1px solid var(--ide-border);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background-color: var(--ide-bg-panel);
+  z-index: 1;
+}
+
+.problems-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.problems-table tr:hover {
+  background-color: var(--ide-bg-hover);
+}
+
+/* --------------------------------------------------------------------------
+   6. Bottom Status Bar (22px)
+   -------------------------------------------------------------------------- */
+.vscode-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  background-color: var(--ide-bg-statusbar);
+  color: #ffffff;
+  font-size: 11px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.statusbar-left, .statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.statusbar-item:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   7. IDE-Native Card System
+   -------------------------------------------------------------------------- */
+.ide-card {
+  background-color: var(--ide-bg-card);
+  border: 1px solid var(--ide-border);
+  border-radius: 6px;
+  transition: var(--ide-transition);
+}
+
+.ide-card:hover {
+  border-color: var(--ide-border-light);
+  background-color: var(--ide-bg-card-hover);
+}
+
+/* --------------------------------------------------------------------------
+   8. Fully Responsive Breakpoints & Overlays
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .vscode-titlebar-center {
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 768px) {
+  .vscode-sidebar {
+    position: absolute;
+    left: 48px;
+    top: 35px;
+    bottom: 22px;
+    z-index: 45;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .vscode-inspector-panel {
+    position: absolute;
+    right: 0;
+    top: 35px;
+    bottom: 22px;
+    z-index: 45;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .vscode-titlebar-center {
+    display: none;
+  }
+
+  .ide-menus {
+    display: none;
+  }
+
+  .tabs-actions select {
+    display: none;
+  }
+
+  .ide-splitter-col {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .vscode-activitybar {
+    width: 42px;
+  }
+
+  .activitybar-item {
+    width: 42px;
+    height: 42px;
+  }
+
+  .vscode-sidebar {
+    left: 42px;
+    width: calc(100vw - 42px) !important;
+  }
+
+  .vscode-inspector-panel {
+    width: 100vw !important;
+  }
+
+  .statusbar-right {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. All <select> dropdowns inside IDE — forced dark
+   -------------------------------------------------------------------------- */
+.vscode-ide-container select,
+.vscode-ide-container select option {
+  background-color: var(--ide-bg-input);
+  color: var(--ide-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   10. Shared spinner animation
+   -------------------------------------------------------------------------- */
+.spinner {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

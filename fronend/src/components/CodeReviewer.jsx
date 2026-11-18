@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { reviewCode } from '../services/api';
+import { reviewCode, streamReviewCode, listDocuments } from '../services/api';
 import LanguageSelector from './LanguageSelector';
 import ReviewResult from './ReviewResult';
-import { Terminal, Sparkles, Loader2, Play, CheckCircle } from 'lucide-react';
+import { Terminal, Sparkles, Loader2, Play, CheckCircle, BookOpen, FileCheck } from 'lucide-react';
 
 function CodeReviewer({ code, setCode, language, setLanguage, result, setResult }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadingStep, setLoadingStep] = useState(0);
+  const [streamTokenCount, setStreamTokenCount] = useState(0);
+  const [availableDocs, setAvailableDocs] = useState([]);
+  const [selectedDocId, setSelectedDocId] = useState('');
   const [justFixedLines, setJustFixedLines] = useState([]); // Track lines that were just auto-fixed for flash animations
   const [flashGlow, setFlashGlow] = useState(false); // Green glow flash for the whole IDE
   const [fixedIssueIds, setFixedIssueIds] = useState(new Set()); // Tracks IDs of issues that were auto-fixed
@@ -36,6 +39,23 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
     return () => clearInterval(interval);
   }, [loading]);
 
+  // Load available documents for RAG Architectural Compliance
+  useEffect(() => {
+    const fetchDocs = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const data = await listDocuments();
+        if (data && data.success && Array.isArray(data.documents)) {
+          setAvailableDocs(data.documents);
+        }
+      } catch (e) {
+        console.warn("Could not fetch documents for compliance dropdown:", e);
+      }
+    };
+    fetchDocs();
+  }, []);
+
   const handleSubmit = async () => {
     if (!code.trim()) {
       setError('Please enter some code to review.');
@@ -45,18 +65,45 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
     setError('');
     setResult(null);
     setFixedIssueIds(new Set()); // Reset fixed issues on new review
+    setStreamTokenCount(0);
 
     try {
-      const data = await reviewCode(code, language);
-      if (data.success === false) {
-        setError(data.error || 'Failed to generate review.');
-      } else {
-        setResult(data);
-      }
+      let tokensReceived = 0;
+      await streamReviewCode(
+        code,
+        language,
+        selectedDocId || null,
+        (_token) => {
+          tokensReceived++;
+          setStreamTokenCount(tokensReceived);
+        },
+        (payload) => {
+          if (payload.success === false) {
+            setError(payload.error || 'Failed to generate review.');
+          } else {
+            setResult(payload.data || payload);
+          }
+          setLoading(false);
+        },
+        async (err) => {
+          console.warn('Streaming error, falling back to standard review endpoint:', err);
+          try {
+            const fallbackData = await reviewCode(code, language, selectedDocId || null);
+            if (fallbackData.success === false) {
+              setError(fallbackData.error || 'Failed to generate review.');
+            } else {
+              setResult(fallbackData.data || fallbackData);
+            }
+          } catch (fallbackErr) {
+            setError(fallbackErr.response?.data?.message || err || 'An error occurred. Please ensure the backend gateway is running.');
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'An error occurred. Please ensure the backend gateway is running.');
-    } finally {
+      setError(err.message || 'An error occurred. Please ensure the backend gateway is running.');
       setLoading(false);
     }
   };
@@ -74,15 +121,16 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
 
   // Apply Auto-Fix directly into the editor code
   const handleApplyFix = (issue, issueIndex) => {
-    const { line, suggestion } = issue;
-    if (!line) return;
+    const { line, replacement_code, suggestion } = issue;
+    const fixCode = replacement_code || suggestion;
+    if (!line || !fixCode) return;
 
     const lines = getLines();
     if (line < 1 || line > lines.length) return;
 
     // Perform inline replacement
     const newLines = [...lines];
-    newLines[line - 1] = suggestion; // Replace the target line with the suggestion
+    newLines[line - 1] = fixCode; // Replace the target line with the valid replacement code
     const newCode = newLines.join('\n');
     
     setCode(newCode);
@@ -139,6 +187,25 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
           <p>Paste your code, select your language, and run a complete security and performance audit.</p>
         </div>
         <div className="workspace-actions">
+          {/* Architecture / Compliance Doc Selector */}
+          {availableDocs.length > 0 && (
+            <div className="guideline-selector-wrapper" title="Select an uploaded document to perform an architectural compliance audit">
+              <BookOpen size={15} className="text-secondary" />
+              <select
+                className="guideline-select"
+                value={selectedDocId}
+                onChange={(e) => setSelectedDocId(e.target.value)}
+              >
+                <option value="">Standard Review (No Doc)</option>
+                {availableDocs.map(doc => (
+                  <option key={doc.id} value={doc.id}>
+                    📘 {doc.filename}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <LanguageSelector language={language} setLanguage={setLanguage} />
           
           <button 
@@ -151,7 +218,7 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
             ) : (
               <Sparkles size={16} />
             )}
-            <span>{loading ? 'Analyzing...' : 'Review Code'}</span>
+            <span>{loading ? 'Analyzing...' : selectedDocId ? 'Audit Compliance' : 'Review Code'}</span>
           </button>
         </div>
       </div>
@@ -177,6 +244,12 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
             <span>sandbox.{language === 'cpp' ? 'cpp' : language === 'java' ? 'java' : language === 'python' ? 'py' : 'js'}</span>
           </div>
           <div className="ide-meta">
+            {selectedDocId && (
+              <span className="badge badge-success" title="RAG Architecture Compliance Mode Active" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <FileCheck size={12} />
+                <span>RAG Active: {availableDocs.find(d => d.id === selectedDocId)?.filename?.substring(0, 20)}</span>
+              </span>
+            )}
             <span className="badge badge-secondary">{language}</span>
           </div>
         </div>
@@ -231,10 +304,21 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
             <div className="loading-pulse-brain">
               <Sparkles size={40} className="glow-sparkle" />
             </div>
-            <h3>Generating Code Insights</h3>
-            <p className="loading-status-step">{loadingMessages[loadingStep]}</p>
+            <h3>{streamTokenCount > 0 ? "Streaming Real-Time Analysis" : "Generating Code Insights"}</h3>
+            <p className="loading-status-step">
+              {streamTokenCount > 0 
+                ? `Synthesizing review & AST diagnostics (${streamTokenCount} tokens received)...`
+                : loadingMessages[loadingStep]}
+            </p>
             <div className="progress-bar-loading">
-              <div className="progress-bar-fill" style={{ width: `${((loadingStep + 1) / loadingMessages.length) * 100}%` }}></div>
+              <div 
+                className="progress-bar-fill" 
+                style={{ 
+                  width: streamTokenCount > 0 
+                    ? `${Math.min(96, Math.max(15, streamTokenCount * 1.5))}%` 
+                    : `${((loadingStep + 1) / loadingMessages.length) * 100}%` 
+                }}
+              ></div>
             </div>
           </div>
         </div>
@@ -279,6 +363,34 @@ function CodeReviewer({ code, setCode, language, setLanguage, result, setResult 
           display: flex;
           align-items: center;
           gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .guideline-selector-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(18, 22, 36, 0.75);
+          border: 1px solid var(--border-light);
+          padding: 6px 12px;
+          border-radius: 8px;
+          backdrop-filter: var(--glass-blur);
+        }
+
+        .guideline-select {
+          background: transparent;
+          border: none;
+          color: var(--text-primary);
+          font-family: var(--font-sans);
+          font-size: 0.85rem;
+          outline: none;
+          cursor: pointer;
+          max-width: 180px;
+        }
+
+        .guideline-select option {
+          background: #0f121d;
+          color: #fff;
         }
 
         .error-banner {

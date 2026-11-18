@@ -21,7 +21,8 @@ const initMockDb = () => {
       users: [],
       documents: [],
       document_chunks: [],
-      chat_messages: []
+      chat_messages: [],
+      review_history: []
     };
     fs.writeFileSync(MOCK_DB_PATH, JSON.stringify(initialData, null, 2), "utf8");
   }
@@ -205,6 +206,42 @@ const runMockQuery = (text, params = []) => {
     const userId = params[1];
     const found = db.documents.filter(d => d.id === docId && d.user_id === userId);
     return { rows: found.map(d => ({ id: d.id })) };
+  }
+
+  // 11. Insert Review History
+  if (cleanedText.includes("INSERT INTO review_history")) {
+    if (!db.review_history) db.review_history = [];
+    const newReview = {
+      id: crypto.randomUUID(),
+      filename: params[0],
+      filepath: params[1],
+      language: params[2],
+      code: params[3],
+      overall_score: params[4],
+      compliance_score: params[5],
+      summary: params[6],
+      issues: typeof params[7] === 'string' ? JSON.parse(params[7]) : params[7],
+      linter_diagnostics: typeof params[8] === 'string' ? JSON.parse(params[8]) : params[8],
+      created_at: new Date().toISOString()
+    };
+    db.review_history.unshift(newReview);
+    writeMockDb(db);
+    return { rows: [newReview] };
+  }
+
+  // 12. Select Review History List
+  if (cleanedText.includes("FROM review_history") && cleanedText.includes("ORDER BY created_at DESC")) {
+    if (!db.review_history) db.review_history = [];
+    const limit = params[0] || 30;
+    const history = db.review_history.slice(0, limit);
+    return { rows: history };
+  }
+
+  // 13. Select Review History by ID
+  if (cleanedText.includes("FROM review_history WHERE id =")) {
+    if (!db.review_history) db.review_history = [];
+    const found = db.review_history.find(r => r.id === params[0]);
+    return { rows: found ? [found] : [] };
   }
 
   // Generic fallback

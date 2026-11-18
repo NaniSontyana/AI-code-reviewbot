@@ -14,6 +14,10 @@ const chatRoutes = require("./routes/chat.routes");
 
 // Middleware imports
 const errorHandler = require("./middleware/errorHandler");
+const { initReviewHistoryTable } = require("./services/history.service");
+
+// Boot history schema if available
+initReviewHistoryTable().catch(() => {});
 
 const app = express();
 

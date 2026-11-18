@@ -1,51 +1,42 @@
 import { useState } from 'react';
-import { AlertOctagon, AlertTriangle, Info, ChevronDown, ChevronUp, Copy, Check, Wand2, CheckCircle2 } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, Info, ChevronDown, ChevronRight, Copy, Check, Wand2, CheckCircle2, BookOpen } from 'lucide-react';
 
 function IssueCard({ issue, issueIndex, onApplyFix, isFixed }) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  
-  const { severity, line, category, description, suggestion } = issue;
 
-  // Icons based on severity
-  const getSeverityIcon = () => {
-    if (isFixed) {
-      return <CheckCircle2 size={16} className="text-success-icon" />;
-    }
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return <AlertOctagon size={16} className="text-danger-icon" />;
-      case 'warning':
-        return <AlertTriangle size={16} className="text-warning-icon" />;
-      default:
-        return <Info size={16} className="text-suggestion-icon" />;
+  const { severity, line, category, description, suggestion, replacement_code, guideline_citation } = issue;
+
+  const severityLower = severity?.toLowerCase() || 'suggestion';
+
+  const severityConfig = {
+    critical:   { icon: AlertOctagon, color: 'var(--ide-red)',    borderColor: 'var(--ide-red)' },
+    warning:    { icon: AlertTriangle, color: 'var(--ide-yellow)', borderColor: 'var(--ide-yellow)' },
+    suggestion: { icon: Info,          color: 'var(--ide-purple)', borderColor: 'var(--ide-purple)' }
+  };
+
+  const cfg = isFixed
+    ? { icon: CheckCircle2, color: 'var(--ide-green)', borderColor: 'var(--ide-green)' }
+    : (severityConfig[severityLower] || severityConfig.suggestion);
+
+  const SeverityIcon = cfg.icon;
+
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    const text = replacement_code || suggestion;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
     }
   };
 
-  // Badges classes based on severity
-  const getSeverityBadgeClass = () => {
-    if (isFixed) return 'badge-success';
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return 'badge-danger';
-      case 'warning':
-        return 'badge-warning';
-      default:
-        return 'badge-primary';
-    }
-  };
-
-  // Card classes based on severity
-  const getCardClass = () => {
-    if (isFixed) return 'card-fixed';
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return 'card-critical';
-      case 'warning':
-        return 'card-warning';
-      default:
-        return 'card-suggestion';
-    }
+  const handleApplyFixClick = (e) => {
+    e.stopPropagation();
+    if (onApplyFix && !isFixed) onApplyFix(issue, issueIndex);
   };
 
   const formatCategory = (cat) => {
@@ -53,284 +44,204 @@ function IssueCard({ issue, issueIndex, onApplyFix, isFixed }) {
     return cat.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const handleCopy = async (e) => {
-    e.stopPropagation(); // Avoid triggering expand/collapse
-    if (!suggestion) return;
-    try {
-      await navigator.clipboard.writeText(suggestion);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy suggestion:', err);
-    }
-  };
-
-  const handleApplyFixClick = (e) => {
-    e.stopPropagation(); // Avoid triggering expand/collapse
-    if (onApplyFix && !isFixed) {
-      onApplyFix(issue, issueIndex);
-    }
-  };
+  /* ---- Inline action button ---- */
+  const SmallBtn = ({ onClick, children, title, active, activeColor }) => (
+    <button
+      onClick={onClick}
+      title={title}
+      disabled={active}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '3px 8px',
+        fontSize: 11,
+        fontWeight: 500,
+        borderRadius: 4,
+        border: `1px solid ${active ? (activeColor || 'var(--ide-green)') : 'var(--ide-border-light)'}`,
+        background: active ? 'rgba(78,201,176,0.1)' : 'transparent',
+        color: active ? (activeColor || 'var(--ide-green)') : 'var(--ide-text-secondary)',
+        cursor: active ? 'default' : 'pointer',
+        transition: 'var(--ide-transition)'
+      }}
+    >
+      {children}
+    </button>
+  );
 
   return (
-    <div className={`issue-card glass-panel ${getCardClass()} ${isOpen ? 'active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
-      <div className="issue-header">
-        <div className="issue-meta">
-          {getSeverityIcon()}
-          
-          {/* Severity Badge */}
-          <span className={`badge ${getSeverityBadgeClass()}`}>
-            {isFixed ? 'Fixed' : severity}
+    <div
+      style={{
+        background: 'var(--ide-bg-card)',
+        border: '1px solid var(--ide-border)',
+        borderLeft: `3px solid ${cfg.borderColor}`,
+        borderRadius: 5,
+        cursor: 'pointer',
+        transition: 'var(--ide-transition)',
+        opacity: isFixed ? 0.7 : 1
+      }}
+      onClick={() => setIsOpen(!isOpen)}
+    >
+      {/* ── Header row ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 10px',
+        flexWrap: 'wrap'
+      }}>
+        {isOpen
+          ? <ChevronDown size={14} style={{ color: 'var(--ide-text-secondary)', flexShrink: 0 }} />
+          : <ChevronRight size={14} style={{ color: 'var(--ide-text-secondary)', flexShrink: 0 }} />
+        }
+        <SeverityIcon size={14} style={{ color: cfg.color, flexShrink: 0 }} />
+
+        {/* severity badge */}
+        <span style={{
+          fontSize: 10,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          color: cfg.color,
+          letterSpacing: '0.03em'
+        }}>
+          {isFixed ? 'Fixed' : severity}
+        </span>
+
+        {/* category pill */}
+        <span style={{
+          fontSize: 10,
+          padding: '1px 6px',
+          borderRadius: 3,
+          background: 'rgba(255,255,255,0.06)',
+          color: 'var(--ide-text-secondary)'
+        }}>
+          {formatCategory(category)}
+        </span>
+
+        {/* compliance badge */}
+        {guideline_citation && (
+          <span style={{
+            fontSize: 10,
+            padding: '1px 6px',
+            borderRadius: 3,
+            background: 'rgba(6,182,212,0.12)',
+            color: 'var(--ide-cyan)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3
+          }}>
+            <BookOpen size={9} /> Compliance
           </span>
-
-          {/* Category Badge */}
-          <span className="badge badge-secondary">
-            {formatCategory(category)}
-          </span>
-
-          {/* Line Number */}
-          {line && (
-            <span className="line-badge">
-              Line {line}
-            </span>
-          )}
-        </div>
-
-        <div className="issue-toggle">
-          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </div>
-      </div>
-
-      <div className="issue-summary-line">
-        {isFixed ? (
-          <span className="text-success-fixed">Suggested fix successfully applied to line {line}.</span>
-        ) : (
-          <span>{description?.substring(0, 80)}{description?.length > 80 ? '...' : ''}</span>
         )}
+
+        {/* line badge */}
+        {line && (
+          <span style={{
+            fontSize: 10,
+            fontFamily: 'var(--font-editor)',
+            padding: '1px 6px',
+            borderRadius: 3,
+            background: 'rgba(255,255,255,0.06)',
+            color: 'var(--ide-text-primary)'
+          }}>
+            Ln {line}
+          </span>
+        )}
+
+        {/* one-line preview */}
+        <span style={{
+          flex: 1,
+          fontSize: 12,
+          color: 'var(--ide-text-primary)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0
+        }}>
+          {isFixed
+            ? <span style={{ color: 'var(--ide-green)', fontStyle: 'italic' }}>Fix applied to line {line}</span>
+            : (description?.length > 70 ? description.substring(0, 70) + '…' : description)
+          }
+        </span>
       </div>
 
+      {/* ── Expanded Body ── */}
       {isOpen && (
-        <div className="issue-body animate-fade-in" onClick={(e) => e.stopPropagation()}>
-          <div className="issue-description">
-            <h4>Description</h4>
-            <p>{description}</p>
+        <div
+          style={{
+            padding: '0 10px 10px 30px',
+            borderTop: '1px solid var(--ide-border)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Full description */}
+          <div style={{ marginTop: 10, marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ide-text-secondary)', marginBottom: 4, letterSpacing: '0.04em' }}>Description</div>
+            <p style={{ fontSize: 12, color: 'var(--ide-text-primary)', lineHeight: 1.6, margin: 0 }}>{description}</p>
           </div>
 
-          {suggestion && (
-            <div className="issue-suggestion">
-              <div className="suggestion-header">
-                <h4>Suggested Fix</h4>
-                <div className="suggestion-actions">
-                  {/* One-Click Auto-Fix Button */}
-                  {line && onApplyFix && (
-                    <button 
-                      className={`btn-apply-fix ${isFixed ? 'btn-fix-applied' : ''}`} 
-                      onClick={handleApplyFixClick}
-                      disabled={isFixed}
-                      title={isFixed ? "Fix already applied" : "Inject this suggested code directly into the editor"}
-                    >
-                      {isFixed ? <Check size={14} /> : <Wand2 size={14} />}
-                      <span>{isFixed ? 'Fix Applied' : 'Apply Auto-Fix'}</span>
-                    </button>
-                  )}
+          {/* Guideline citation callout */}
+          {guideline_citation && (
+            <div style={{
+              padding: '8px 10px',
+              marginBottom: 10,
+              background: 'rgba(6,182,212,0.06)',
+              borderLeft: '3px solid var(--ide-cyan)',
+              borderRadius: 3,
+              fontSize: 12
+            }}>
+              <strong style={{ color: 'var(--ide-cyan)', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                <BookOpen size={12} /> Architectural Guideline
+              </strong>
+              <p style={{ marginTop: 3, color: 'var(--ide-text-primary)', margin: '3px 0 0' }}>{guideline_citation}</p>
+            </div>
+          )}
 
-                  <button className="btn-copy-suggestion" onClick={handleCopy} title="Copy code suggestion">
-                    {copied ? <Check size={14} className="text-success-icon" /> : <Copy size={14} />}
-                    <span>{copied ? 'Copied!' : 'Copy Fix'}</span>
-                  </button>
+          {/* Suggestion + code block */}
+          {(suggestion || replacement_code) && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ide-text-secondary)', letterSpacing: '0.04em' }}>Suggested Fix</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {line && onApplyFix && (replacement_code || suggestion) && (
+                    <SmallBtn onClick={handleApplyFixClick} title={isFixed ? 'Already applied' : 'Apply auto-fix'} active={isFixed} activeColor="var(--ide-green)">
+                      {isFixed ? <Check size={11} /> : <Wand2 size={11} />}
+                      <span>{isFixed ? 'Applied' : 'Auto-Fix'}</span>
+                    </SmallBtn>
+                  )}
+                  <SmallBtn onClick={handleCopy} title="Copy fix">
+                    {copied ? <Check size={11} /> : <Copy size={11} />}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                  </SmallBtn>
                 </div>
               </div>
-              <pre className="suggestion-code">
-                <code>{suggestion}</code>
-              </pre>
+
+              {suggestion && (
+                <p style={{ fontSize: 12, color: 'var(--ide-text-secondary)', lineHeight: 1.5, marginBottom: replacement_code ? 6 : 0 }}>
+                  {suggestion}
+                </p>
+              )}
+
+              {replacement_code && (
+                <pre style={{
+                  background: '#1a1a1a',
+                  border: '1px solid var(--ide-border)',
+                  borderRadius: 4,
+                  padding: '8px 10px',
+                  margin: 0,
+                  overflow: 'auto',
+                  fontFamily: 'var(--font-editor)',
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: '#d4d4d4'
+                }}>
+                  <code>{replacement_code}</code>
+                </pre>
+              )}
             </div>
           )}
         </div>
       )}
-
-      <style>{`
-        .issue-card {
-          margin-bottom: 12px;
-          padding: 16px;
-          text-align: left;
-          cursor: pointer;
-          border-left: 4px solid transparent;
-        }
-
-        .issue-card:hover {
-          transform: translateX(2px);
-        }
-
-        .card-critical {
-          border-left-color: var(--color-danger);
-        }
-        .card-critical.active {
-          box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
-          border-color: var(--color-danger-border) var(--color-danger-border) var(--color-danger-border) var(--color-danger);
-        }
-
-        .card-warning {
-          border-left-color: var(--color-warning);
-        }
-        .card-warning.active {
-          box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
-          border-color: var(--color-warning-border) var(--color-warning-border) var(--color-warning-border) var(--color-warning);
-        }
-
-        .card-suggestion {
-          border-left-color: var(--color-primary);
-        }
-        .card-suggestion.active {
-          box-shadow: 0 0 15px rgba(139, 92, 246, 0.15);
-          border-color: var(--color-primary-border) var(--color-primary-border) var(--color-primary-border) var(--color-primary);
-        }
-
-        .card-fixed {
-          border-left-color: var(--color-success);
-          background: rgba(16, 185, 129, 0.03);
-          opacity: 0.85;
-        }
-        .card-fixed.active {
-          box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
-          border-color: var(--color-success-border) var(--color-success-border) var(--color-success-border) var(--color-success);
-        }
-
-        .issue-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .issue-meta {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .issue-toggle {
-          color: var(--text-secondary);
-        }
-
-        .issue-summary-line {
-          margin-top: 10px;
-          font-size: 0.95rem;
-          color: var(--text-primary);
-          font-weight: 400;
-        }
-        
-        .issue-card.active .issue-summary-line {
-          display: none;
-        }
-
-        .line-badge {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 6px;
-          padding: 2px 8px;
-          font-size: 0.75rem;
-          font-family: var(--font-mono);
-          color: var(--text-primary);
-        }
-
-        .issue-body {
-          margin-top: 16px;
-          border-top: 1px solid var(--border-light);
-          padding-top: 16px;
-        }
-
-        .issue-description h4, .issue-suggestion h4 {
-          font-size: 0.9rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--text-secondary);
-          margin-bottom: 6px;
-        }
-
-        .issue-description p {
-          font-size: 0.95rem;
-          color: var(--text-primary);
-          margin-bottom: 16px;
-        }
-
-        .issue-suggestion {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .suggestion-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-        }
-
-        .suggestion-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn-copy-suggestion, .btn-apply-fix {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid var(--border-light);
-          border-radius: 6px;
-          padding: 4px 10px;
-          color: var(--text-secondary);
-          font-size: 0.8rem;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-          font-family: var(--font-heading);
-          font-weight: 500;
-        }
-
-        .btn-copy-suggestion:hover {
-          color: #fff;
-          background: rgba(255,255,255,0.1);
-          border-color: var(--border-hover);
-        }
-
-        .btn-apply-fix {
-          background: var(--color-primary-glow);
-          border-color: var(--color-primary-border);
-          color: #c084fc;
-        }
-
-        .btn-apply-fix:hover {
-          background: rgba(139, 92, 246, 0.25);
-          border-color: var(--color-primary);
-          color: #fff;
-          box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
-        }
-
-        .btn-fix-applied, .btn-fix-applied:hover {
-          background: var(--color-success-glow);
-          border-color: var(--color-success-border);
-          color: #34d399;
-          cursor: default;
-          box-shadow: none;
-        }
-
-        .suggestion-code {
-          background: rgba(10, 12, 20, 0.6);
-          border: 1px solid var(--border-light);
-          border-radius: 8px;
-          padding: 12px;
-          overflow-x: auto;
-          font-family: var(--font-mono);
-          font-size: 0.85rem;
-          line-height: 1.5;
-          color: #e5e7eb;
-        }
-
-        .text-danger-icon { color: var(--color-danger); }
-        .text-warning-icon { color: var(--color-warning); }
-        .text-suggestion-icon { color: var(--color-primary); }
-        .text-success-icon { color: var(--color-success); }
-        .text-success-fixed { color: #a7f3d0; font-style: italic; }
-      `}</style>
     </div>
   );
 }

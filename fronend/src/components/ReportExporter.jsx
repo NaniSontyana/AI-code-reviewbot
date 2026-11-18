@@ -73,7 +73,8 @@ function ReportExporter({ code, language, result }) {
       const categoryStr = issue.category ? issue.category.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : "General";
       const severityStr = issue.severity ? issue.severity.toUpperCase() : "SUGGESTION";
       const descStr = issue.description ? issue.description.replace(/\n/g, ' ') : "-";
-      const sugStr = issue.suggestion ? `\`${issue.suggestion.replace(/\n/g, ' ').substring(0, 50)}${issue.suggestion.length > 50 ? "..." : ""}\`` : "-";
+      const codePreview = issue.replacement_code || issue.suggestion || "";
+      const sugStr = codePreview ? `\`${codePreview.replace(/\n/g, ' ').substring(0, 50)}${codePreview.length > 50 ? "..." : ""}\`` : "-";
       
       md += `| ${lineStr} | ${categoryStr} | **${severityStr}** | ${descStr} | ${sugStr} |\n`;
     });
@@ -88,7 +89,13 @@ function ReportExporter({ code, language, result }) {
       md += `### [Finding #${idx + 1}] ${categoryStr} - ${severityStr} (${lineStr})\n`;
       md += `**Description**: ${issue.description}\n\n`;
       if (issue.suggestion) {
-        md += `**Recommended Fix**:\n\n`;
+        md += `**Explanation**: ${issue.suggestion}\n\n`;
+      }
+      if (issue.replacement_code) {
+        md += `**Replacement Code**:\n\n`;
+        md += `\`\`\`${language}\n${issue.replacement_code}\n\`\`\`\n\n`;
+      } else if (issue.suggestion && !issue.suggestion.includes('\n')) {
+        md += `**Suggested Fix**:\n\n`;
         md += `\`\`\`${language}\n${issue.suggestion}\n\`\`\`\n\n`;
       }
       md += `---\n\n`;
@@ -132,6 +139,11 @@ function ReportExporter({ code, language, result }) {
       html += `<p><strong>Severity:</strong> ${severityStr}</p>`;
       html += `<p><strong>Description:</strong> ${issue.description}</p>`;
       if (issue.suggestion) {
+        html += `<p><strong>Explanation:</strong> ${issue.suggestion}</p>`;
+      }
+      if (issue.replacement_code) {
+        html += `<p><strong>Replacement Code:</strong></p><pre style="background: #1e1e2e; color: #fff; padding: 12px; border-radius: 6px;"><code>${issue.replacement_code}</code></pre>`;
+      } else if (issue.suggestion && !issue.suggestion.includes('\n')) {
         html += `<p><strong>Recommended Fix:</strong></p><pre style="background: #1e1e2e; color: #fff; padding: 12px; border-radius: 6px;"><code>${issue.suggestion}</code></pre>`;
       }
       html += `</div>`;
@@ -251,10 +263,15 @@ function ReportExporter({ code, language, result }) {
                   <p className="action-item-desc">{issue.description}</p>
                   
                   {issue.suggestion && (
+                    <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: issue.replacement_code ? '8px' : '0' }}>
+                      <strong>Advice:</strong> {issue.suggestion}
+                    </p>
+                  )}
+                  {(issue.replacement_code || (!issue.replacement_code && issue.suggestion && !issue.suggestion.includes('\n'))) && (
                     <div className="action-item-code-box">
-                      <span className="code-box-lbl">Recommended Fix:</span>
+                      <span className="code-box-lbl">Replacement Code:</span>
                       <pre className="code-box-pre">
-                        <code>{issue.suggestion}</code>
+                        <code>{issue.replacement_code || issue.suggestion}</code>
                       </pre>
                     </div>
                   )}

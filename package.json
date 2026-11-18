@@ -1,0 +1,14 @@
+{
+  "name": "ai-code-review-suite",
+  "version": "1.0.0",
+  "description": "Real-time AI Code Review & Architectural Compliance Suite",
+  "main": "start-all.js",
+  "scripts": {
+    "start": "node start-all.js",
+    "backend": "npm --prefix backend run dev",
+    "frontend": "npm --prefix fronend run dev"
+  },
+  "keywords": ["ai", "code-review", "rag", "real-time"],
+  "author": "",
+  "license": "ISC"
+}
