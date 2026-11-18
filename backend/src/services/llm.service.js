@@ -15,6 +15,7 @@ async function testGroqConnection() {
                 "https://api.groq.com/openai/v1/chat/completions",
                 {
                     model: model,
+            max_tokens: 800,
                     messages: [
                         {
                             role: "user",
@@ -126,6 +127,7 @@ async function reviewCode(code, language = "unknown", documentContext = null) {
                 "https://api.groq.com/openai/v1/chat/completions",
                 {
                     model: model,
+            max_tokens: 800,
                     messages: [
                         {
                             role: "system",
@@ -178,6 +180,7 @@ async function streamReviewCode(code, language = "unknown", documentContext = nu
                 },
                 body: JSON.stringify({
                     model: model,
+            max_tokens: 800,
                     messages: [
                         {
                             role: "system",
